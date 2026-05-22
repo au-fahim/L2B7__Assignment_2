@@ -8,6 +8,7 @@ import dotenv from "dotenv";
 import pool from "./config/db";
 import authRoutes from "./modules/auth/auth.routes";
 import issuesRoutes from "./modules/issues/issues.routes";
+import { globalErrorHandler } from "./middleware/error.middleware";
 
 dotenv.config();
 
@@ -24,6 +25,8 @@ app.use("/api/issues", issuesRoutes);
 app.get("/", (req: Request, res: Response) => {
   res.status(200).json({ message: "DevPulse is running!" });
 });
+
+app.use(globalErrorHandler);
 
 app.listen(PORT, async () => {
   console.log(`Server is running on port ${PORT}`);
