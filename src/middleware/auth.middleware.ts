@@ -7,6 +7,7 @@ export interface AuthRequest extends Request {
   user?: any;
 }
 
+// Middleware to check if the user is authenticated
 export const authenticateUser = (
   req: AuthRequest,
   res: Response,
@@ -40,4 +41,21 @@ export const authenticateUser = (
       message: "Invalid or expired token.",
     });
   }
+};
+
+// Middleware to check if the user is a maintainer
+export const isMaintainer = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): any => {
+  // Check if the user object exists AND if the role is exactly "maintainer"
+  if (!req.user || req.user.role !== "maintainer") {
+    return res.status(403).json({
+      success: false,
+      message: "Forbidden: You do not have permission to perform this action",
+    });
+  }
+
+  next();
 };
