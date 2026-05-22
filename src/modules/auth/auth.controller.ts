@@ -15,7 +15,10 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
     if (!name || !email || !password) {
       return res
         .status(400)
-        .json({ error: "Name, email, and password are required" });
+        .json({
+          success: false,
+          error: "Name, email, and password are required",
+        });
     }
 
     const hashedPassword: string = await hashPassword(password);
@@ -43,9 +46,11 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
   } catch (error: any) {
     if (error.code === "23505") {
       // PostgreSQL unique violation error code
-      return res.status(409).json({ error: "Email already exists" });
+      return res
+        .status(409)
+        .json({ success: false, error: "Email already exists" });
     }
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ success: false, error: "Internal server error" });
   }
 };
 
@@ -56,21 +61,27 @@ export const login = async (req: Request, res: Response): Promise<any> => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ error: "Email and password are required" });
+      return res
+        .status(400)
+        .json({ success: false, error: "Email and password are required" });
     }
 
     const userQuery = `SELECT * FROM users WHERE email = $1;`;
     const result = await pool.query(userQuery, [email]);
 
     if (result.rows.length === 0) {
-      return res.status(401).json({ error: "User not found :(" });
+      return res
+        .status(401)
+        .json({ success: false, error: "User not found :(" });
     }
 
     const user = result.rows[0];
     const isMatch = await comparePassword(password, user.password);
 
     if (!isMatch) {
-      return res.status(401).json({ error: "Wrong password :<" });
+      return res
+        .status(401)
+        .json({ success: false, error: "Wrong password :<" });
     }
 
     const token = generateToken({
@@ -85,6 +96,6 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       data: { token, user: { ...user, password: undefined } },
     });
   } catch (error: any) {
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ success: false, error: "Internal server error" });
   }
 };
