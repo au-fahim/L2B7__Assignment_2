@@ -1,4 +1,5 @@
 import { type Request, type Response, type NextFunction } from "express";
+import { sendError } from "../utils/response";
 
 export const globalErrorHandler = (
   err: any,
@@ -6,15 +7,13 @@ export const globalErrorHandler = (
   res: Response,
   next: NextFunction,
 ): any => {
-  console.error("🔥 Global Error Caught:", err.stack);
-
   const statusCode = err.statusCode || 500;
   const message = err.message || "Internal Server Error";
 
-  res.status(statusCode).json({
-    success: false,
-    message: message,
-    // Optionally include error details only in development mode
-    error: process.env.NODE_ENV === "development" ? err : undefined,
-  });
+  sendError(
+    res,
+    statusCode,
+    message,
+    process.env.NODE_ENV === "development" ? err.stack : null,
+  );
 };
