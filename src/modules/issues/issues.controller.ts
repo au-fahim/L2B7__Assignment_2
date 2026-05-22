@@ -2,7 +2,7 @@ import { type Request, type Response } from "express";
 import pool from "../../config/db";
 import type { AuthRequest } from "../../middleware/auth.middleware";
 
-// ########## Create Issue - Controller ##########
+// ##### Create Issue - Controller #####
 export const createIssue = async (
   req: AuthRequest,
   res: Response,
@@ -140,6 +140,7 @@ export const getAllIssues = async (
   }
 };
 
+// ##### Get Issue by ID - Controller #####
 export const getIssueById = async (
   req: Request,
   res: Response,
@@ -183,5 +184,138 @@ export const getIssueById = async (
       success: false,
       message: "Internal server error",
     });
+  }
+};
+
+// ##### Update Issue - Controller #####
+export const updateIssue = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<any> => {
+  try {
+    const issueId = req.params.id;
+    const { title, description, type, status } = req.body;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    const checkQuery = `SELECT reporter_id, status FROM issues WHERE id = $1;`;
+    const checkResult = await pool.query(checkQuery, [issueId]);
+
+    if (checkResult.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Issue not found" });
+    }
+
+    const existingIssue = checkResult.rows[0];
+
+    if (userRole === "contributor") {
+      // Contributors can ONLY update their own issues
+      if (existingIssue.reporter_id !== userId) {
+        return res.status(403).json({
+          success: false,
+          message: "Forbidden: You can only update your own issues",
+        });
+      }
+      // Contributors can ONLY update issues that are currently 'open'
+      if (existingIssue.status !== "open") {
+        return res.status(400).json({
+          success: false,
+          message: "Bad Request: You can only update issues that are open",
+        });
+      }
+    }
+
+    // Prepare UPDATE query
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (title) {
+      updates.push(`title = $${paramIndex++}`);
+      values.push(title);
+    }
+
+    if (description) {
+      updates.push(`description = $${paramIndex++}`);
+      values.push(description);
+    }
+
+    if (type) {
+      if (!["bug", "feature_request"].includes(type)) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid type value" });
+      }
+      updates.push(`type = $${paramIndex++}`);
+      values.push(type);
+    }
+
+    if (status) {
+      if (!["open", "in_progress", "resolved"].includes(status)) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid status value" });
+      }
+      updates.push(`status = $${paramIndex++}`);
+      values.push(status);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide at least one valid field to update",
+      });
+    }
+
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(issueId);
+
+    // Final UPDATE query
+    const updateQuery = `
+      UPDATE issues 
+      SET ${updates.join(", ")} 
+      WHERE id = $${paramIndex} 
+      RETURNING *;
+    `;
+
+    const result = await pool.query(updateQuery, values);
+
+    res.status(200).json({
+      success: true,
+      message: "Issue updated successfully",
+      data: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Error updating issue:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// ##### Delete Issue - Controller #####
+export const deleteIssue = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<any> => {
+  try {
+    const issueId = req.params.id;
+
+    // targeted DELETE query
+    const deleteQuery = `DELETE FROM issues WHERE id = $1 RETURNING id;`;
+    const result = await pool.query(deleteQuery, [issueId]);
+
+    if (result.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Issue not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Issue deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting issue:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
