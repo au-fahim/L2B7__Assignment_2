@@ -1,5 +1,5 @@
 import Router from "express";
-import { createIssue, getAllIssues } from "./issues.controller";
+import { createIssue, getAllIssues, getIssueById } from "./issues.controller";
 import { authenticateUser } from "../../middleware/auth.middleware";
 
 const router = Router();
@@ -9,5 +9,8 @@ router.post("/", authenticateUser, createIssue);
 
 // Retrieve all issues (Anyone can view all issues)
 router.get("/", getAllIssues);
+
+// Retrieve a single issue by ID (Anyone can view issue details)
+router.get("/:id", getIssueById);
 
 export default router;

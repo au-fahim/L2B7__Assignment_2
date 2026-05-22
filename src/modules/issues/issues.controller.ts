@@ -139,3 +139,49 @@ export const getAllIssues = async (
     });
   }
 };
+
+export const getIssueById = async (
+  req: Request,
+  res: Response,
+): Promise<any> => {
+  try {
+    const issueId = req.params.id;
+
+    // 1. Fetch the specific issue
+    const issueQuery = `SELECT * FROM issues WHERE id = $1;`;
+    const issueResult = await pool.query(issueQuery, [issueId]);
+
+    if (issueResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Issue not found",
+      });
+    }
+
+    const issue = issueResult.rows[0];
+
+    // 2. Fetch the specific reporter
+    const userQuery = `SELECT id, name, role FROM users WHERE id = $1;`;
+    const userResult = await pool.query(userQuery, [issue.reporter_id]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        id: issue.id,
+        title: issue.title,
+        description: issue.description,
+        type: issue.type,
+        status: issue.status,
+        reporter: userResult.rows[0] || null,
+        created_at: issue.created_at.toISOString(),
+        updated_at: issue.updated_at.toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching single issue:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
