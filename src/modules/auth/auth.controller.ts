@@ -5,6 +5,7 @@ import {
   comparePassword,
   generateToken,
 } from "../../utils/authUtils";
+import { sendError, sendSuccess } from "../../utils/response";
 
 // ########## Signup Controller ##########
 
@@ -13,12 +14,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
     const { name, email, password, role } = req.body;
 
     if (!name || !email || !password) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "Name, email, and password are required",
-        });
+      return sendError(res, 400, "Name, email, and password are required");
     }
 
     const hashedPassword: string = await hashPassword(password);
@@ -38,19 +34,14 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
       userRole,
     ]);
 
-    res.status(201).json({
-      success: true,
-      message: "User registered successfully",
-      data: result.rows[0],
-    });
+    sendSuccess(res, 201, "User registered successfully", result.rows[0]);
   } catch (error: any) {
     if (error.code === "23505") {
       // PostgreSQL unique violation error code
-      return res
-        .status(409)
-        .json({ success: false, error: "Email already exists" });
+      return sendError(res, 409, "Email already exists");
     }
-    res.status(500).json({ success: false, error: "Internal server error" });
+
+    sendError(res, 500, "Internal server error");
   }
 };
 
@@ -61,27 +52,21 @@ export const login = async (req: Request, res: Response): Promise<any> => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Email and password are required" });
+      return sendError(res, 400, "Email and password are required");
     }
 
     const userQuery = `SELECT * FROM users WHERE email = $1;`;
     const result = await pool.query(userQuery, [email]);
 
     if (result.rows.length === 0) {
-      return res
-        .status(401)
-        .json({ success: false, error: "User not found :(" });
+      return sendError(res, 401, "User not found :(");
     }
 
     const user = result.rows[0];
     const isMatch = await comparePassword(password, user.password);
 
     if (!isMatch) {
-      return res
-        .status(401)
-        .json({ success: false, error: "Wrong password :<" });
+      return sendError(res, 401, "Wrong password :<");
     }
 
     const token = generateToken({
@@ -90,12 +75,11 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       role: user.role,
     });
 
-    res.status(200).json({
-      success: true,
-      message: "Login successful",
-      data: { token, user: { ...user, password: undefined } },
+    sendSuccess(res, 200, "Login successful", {
+      token,
+      user: { ...user, password: undefined },
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: "Internal server error" });
+    sendError(res, 500, "Internal server error");
   }
 };
