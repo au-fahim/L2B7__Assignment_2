@@ -1,6 +1,7 @@
 import { type Request, type Response } from "express";
 import pool from "../../config/db";
 import type { AuthRequest } from "../../middleware/auth.middleware";
+import { sendError, sendSuccess } from "../../utils/response";
 
 // ##### Create Issue - Controller #####
 export const createIssue = async (
@@ -14,17 +15,15 @@ export const createIssue = async (
     const reporterId = req.user.id;
 
     if (!title || !description || !type) {
-      return res.status(400).json({
-        success: false,
-        message: "Title, description, and type are required",
-      });
+      return sendError(res, 400, "Title, description, and type are required");
     }
 
     if (!["bug", "feature_request"].includes(type)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid issue type. Must be bug or feature_request",
-      });
+      return sendError(
+        res,
+        400,
+        "Invalid issue type. Must be 'bug' or 'feature_request'",
+      );
     }
 
     const insertQuery = `
@@ -40,17 +39,10 @@ export const createIssue = async (
       reporterId,
     ]);
 
-    res.status(201).json({
-      success: true,
-      message: "Issue created successfully",
-      data: result.rows[0],
-    });
+    sendSuccess(res, 201, "Issue created successfully", result.rows[0]);
   } catch (error) {
     console.error("Error creating issue:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    sendError(res, 500, "Internal server error");
   }
 };
 
@@ -97,7 +89,7 @@ export const getAllIssues = async (
     const issues = issueResult.rows;
 
     if (issues.length === 0) {
-      return res.status(200).json({ success: true, data: [] });
+      return sendSuccess(res, 200, "", []);
     }
 
     const reporterIds = [...new Set(issues.map((issue) => issue.reporter_id))];
@@ -126,17 +118,11 @@ export const getAllIssues = async (
       };
     });
 
-    res.status(200).json({
-      success: true,
-      data: formattedData,
-    });
+    sendSuccess(res, 200, "", formattedData);
   } catch (error) {
     console.error("Error fetching issues:", error);
 
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    sendError(res, 500, "Internal server error");
   }
 };
 
@@ -153,10 +139,7 @@ export const getIssueById = async (
     const issueResult = await pool.query(issueQuery, [issueId]);
 
     if (issueResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Issue not found",
-      });
+      return sendError(res, 404, "Issue not found");
     }
 
     const issue = issueResult.rows[0];
@@ -165,25 +148,21 @@ export const getIssueById = async (
     const userQuery = `SELECT id, name, role FROM users WHERE id = $1;`;
     const userResult = await pool.query(userQuery, [issue.reporter_id]);
 
-    res.status(200).json({
-      success: true,
-      data: {
-        id: issue.id,
-        title: issue.title,
-        description: issue.description,
-        type: issue.type,
-        status: issue.status,
-        reporter: userResult.rows[0] || null,
-        created_at: issue.created_at.toISOString(),
-        updated_at: issue.updated_at.toISOString(),
-      },
-    });
+    const singleIssue = {
+      id: issue.id,
+      title: issue.title,
+      description: issue.description,
+      type: issue.type,
+      status: issue.status,
+      reporter: userResult.rows[0] || null,
+      created_at: issue.created_at.toISOString(),
+      updated_at: issue.updated_at.toISOString(),
+    };
+
+    sendSuccess(res, 200, "", singleIssue);
   } catch (error) {
     console.error("Error fetching single issue:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    sendError(res, 500, "Internal server error");
   }
 };
 
@@ -202,9 +181,7 @@ export const updateIssue = async (
     const checkResult = await pool.query(checkQuery, [issueId]);
 
     if (checkResult.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Issue not found" });
+      return sendError(res, 404, "Issue not found");
     }
 
     const existingIssue = checkResult.rows[0];
@@ -212,17 +189,20 @@ export const updateIssue = async (
     if (userRole === "contributor") {
       // Contributors can ONLY update their own issues
       if (existingIssue.reporter_id !== userId) {
-        return res.status(403).json({
-          success: false,
-          message: "Forbidden: You can only update your own issues",
-        });
+        return sendError(
+          res,
+          403,
+          "Forbidden: You (as a contributor) can only update your own issues",
+        );
       }
+
       // Contributors can ONLY update issues that are currently 'open'
       if (existingIssue.status !== "open") {
-        return res.status(400).json({
-          success: false,
-          message: "Bad Request: You can only update issues that are open",
-        });
+        return sendError(
+          res,
+          403,
+          "Forbidden: You (as a contributor) can only update issues that are status 'open'",
+        );
       }
     }
 
@@ -243,9 +223,7 @@ export const updateIssue = async (
 
     if (type) {
       if (!["bug", "feature_request"].includes(type)) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Invalid type value" });
+        return sendError(res, 400, "Invalid type value");
       }
       updates.push(`type = $${paramIndex++}`);
       values.push(type);
@@ -253,19 +231,18 @@ export const updateIssue = async (
 
     if (status) {
       if (!["open", "in_progress", "resolved"].includes(status)) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Invalid status value" });
+        return sendError(res, 400, "Invalid status value");
       }
       updates.push(`status = $${paramIndex++}`);
       values.push(status);
     }
 
     if (updates.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide at least one valid field to update",
-      });
+      return sendError(
+        res,
+        400,
+        "Please provide at least one valid field to update",
+      );
     }
 
     updates.push(`updated_at = CURRENT_TIMESTAMP`);
@@ -281,14 +258,10 @@ export const updateIssue = async (
 
     const result = await pool.query(updateQuery, values);
 
-    res.status(200).json({
-      success: true,
-      message: "Issue updated successfully",
-      data: result.rows[0],
-    });
+    sendSuccess(res, 200, "Issue updated successfully", result.rows[0]);
   } catch (error) {
     console.error("Error updating issue:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    sendError(res, 500, "Internal server error");
   }
 };
 
@@ -305,17 +278,12 @@ export const deleteIssue = async (
     const result = await pool.query(deleteQuery, [issueId]);
 
     if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Issue not found" });
+      return sendError(res, 404, "Issue not found");
     }
 
-    res.status(200).json({
-      success: true,
-      message: "Issue deleted successfully",
-    });
+    sendSuccess(res, 200, "Issue deleted successfully");
   } catch (error) {
     console.error("Error deleting issue:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    sendError(res, 500, "Internal server error");
   }
 };

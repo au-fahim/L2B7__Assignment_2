@@ -1,5 +1,6 @@
 import { type Request, type Response, type NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { sendError } from "../utils/response";
 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret";
 
@@ -16,19 +17,13 @@ export const authenticateUser = (
   const authHeader = req.header("Authorization");
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({
-      success: false,
-      message: "Access denied. No token provided.",
-    });
+    return sendError(res, 401, "Access denied. No token provided.");
   }
 
   const token = authHeader.split(" ")[1];
 
   if (!token) {
-    return res.status(401).json({
-      success: false,
-      message: "Access denied. Malformed token.",
-    });
+    return sendError(res, 401, "Access denied. Malformed token.");
   }
 
   try {
@@ -36,10 +31,7 @@ export const authenticateUser = (
     req.user = decoded; // Attach the decoded payload (id, name, role) to the request
     next(); // Pass control to the next function (the controller)
   } catch (error) {
-    res.status(401).json({
-      success: false,
-      message: "Invalid or expired token.",
-    });
+    return sendError(res, 401, "Invalid or expired token.");
   }
 };
 
@@ -51,10 +43,11 @@ export const isMaintainer = (
 ): any => {
   // Check if the user object exists AND if the role is exactly "maintainer"
   if (!req.user || req.user.role !== "maintainer") {
-    return res.status(403).json({
-      success: false,
-      message: "Forbidden: You do not have permission to perform this action",
-    });
+    return sendError(
+      res,
+      403,
+      "Forbidden: You do not have permission to delete an issue.",
+    );
   }
 
   next();
