@@ -8,7 +8,7 @@
 
 # 🧩 Project Name: DevPulse – Internal Tech Issue & Feature Tracker
 
-**Live URL:** [Live URL](#)
+**Live URL:** [https://dev-pulse-a2.vercel.app](https://dev-pulse-a2.vercel.app/)
 
 DevPulse is a collaborative, raw-SQL powered backend platform designed for software teams to report bugs, suggest features, and coordinate resolutions efficiently. This API is built entirely without ORMs or Query Builders to demonstrate advanced relational database management and raw SQL proficiency.
 
