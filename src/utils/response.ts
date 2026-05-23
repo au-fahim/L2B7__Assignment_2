@@ -1,15 +1,15 @@
 import { type Response } from "express";
 
-export const sendSuccess = (
+export const sendSuccess = <T>(
   res: Response,
   statusCode: number,
-  message: string | undefined,
-  data?: any,
+  message?: string,
+  data?: T,
 ) => {
   res.status(statusCode).json({
     success: true,
-    message: message || undefined,
-    data: data !== undefined ? data : undefined,
+    message : message || undefined,
+    data,
   });
 };
 
@@ -17,7 +17,7 @@ export const sendError = (
   res: Response,
   statusCode: number,
   message: string,
-  errors?: any,
+  errors?: unknown,
 ) => {
   res.status(statusCode).json({
     success: false,

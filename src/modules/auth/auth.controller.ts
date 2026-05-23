@@ -6,10 +6,14 @@ import {
   generateToken,
 } from "../../utils/authUtils";
 import { sendError, sendSuccess } from "../../utils/response";
+import type { LoginBody, SignupBody } from "../../types/auth.types";
 
 // ########## Signup Controller ##########
 
-export const signup = async (req: Request, res: Response): Promise<any> => {
+export const signup = async (
+  req: Request<unknown, unknown, SignupBody>,
+  res: Response,
+): Promise<void> => {
   try {
     const { name, email, password, role } = req.body;
 
@@ -35,8 +39,13 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
     ]);
 
     sendSuccess(res, 201, "User registered successfully", result.rows[0]);
-  } catch (error: any) {
-    if (error.code === "23505") {
+  } catch (error: unknown) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code: string }).code === "23505"
+    ) {
       // PostgreSQL unique violation error code
       return sendError(res, 409, "Email already exists");
     }
@@ -47,7 +56,10 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
 
 // ########## Login Controller ##########
 
-export const login = async (req: Request, res: Response): Promise<any> => {
+export const login = async (
+  req: Request<unknown, unknown, LoginBody>,
+  res: Response,
+): Promise<void> => {
   try {
     const { email, password } = req.body;
 
@@ -79,7 +91,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       token,
       user: { ...user, password: undefined },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     sendError(res, 500, "Internal server error");
   }
 };

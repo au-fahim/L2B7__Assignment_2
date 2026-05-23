@@ -2,17 +2,22 @@ import { type Request, type Response } from "express";
 import pool from "../../config/db";
 import type { AuthRequest } from "../../middleware/auth.middleware";
 import { sendError, sendSuccess } from "../../utils/response";
+import type {
+  CreateIssueBody,
+  IssueReporter,
+  UpdateIssueBody,
+} from "../../types/issue.types";
 
 // ##### Create Issue - Controller #####
 export const createIssue = async (
-  req: AuthRequest,
+  req: AuthRequest & Request<unknown, unknown, CreateIssueBody>,
   res: Response,
-): Promise<any> => {
+): Promise<void> => {
   try {
     const { title, description, type } = req.body;
 
     // Extract the reporter_id securely from the verified JWT
-    const reporterId = req.user.id;
+    const reporterId = req.user?.id;
 
     if (!title || !description || !type) {
       return sendError(res, 400, "Title, description, and type are required");
@@ -50,12 +55,12 @@ export const createIssue = async (
 export const getAllIssues = async (
   req: AuthRequest,
   res: Response,
-): Promise<any> => {
+): Promise<void> => {
   try {
     const { type, status, sort } = req.query;
 
     let query = `SELECT * FROM issues`;
-    const queryParams: any[] = [];
+    const queryParams: string[] = [];
     const whereClauses: string[] = [];
 
     // 1. Filtering by type
@@ -98,9 +103,9 @@ export const getAllIssues = async (
     const userQuery = `SELECT id, name, role FROM users WHERE id = ANY($1::int[]);`;
     const userResult = await pool.query(userQuery, [reporterIds]);
 
-    const userMap: Record<number, any> = {};
+    const userMap: Record<number, IssueReporter> = {};
     userResult.rows.forEach((user) => {
-      userMap[user.id] = user;
+      userMap[user.id] = user as IssueReporter;
     });
 
     const formattedData = issues.map((issue) => {
@@ -130,7 +135,7 @@ export const getAllIssues = async (
 export const getIssueById = async (
   req: Request,
   res: Response,
-): Promise<any> => {
+): Promise<void> => {
   try {
     const issueId = req.params.id;
 
@@ -168,14 +173,14 @@ export const getIssueById = async (
 
 // ##### Update Issue - Controller #####
 export const updateIssue = async (
-  req: AuthRequest,
+  req: AuthRequest & Request<{ id: string }, unknown, UpdateIssueBody>,
   res: Response,
-): Promise<any> => {
+): Promise<void> => {
   try {
     const issueId = req.params.id;
     const { title, description, type, status } = req.body;
-    const userId = req.user.id;
-    const userRole = req.user.role;
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
 
     const checkQuery = `SELECT reporter_id, status FROM issues WHERE id = $1;`;
     const checkResult = await pool.query(checkQuery, [issueId]);
@@ -208,7 +213,7 @@ export const updateIssue = async (
 
     // Prepare UPDATE query
     const updates: string[] = [];
-    const values: any[] = [];
+    const values: (string | number)[] = [];
     let paramIndex = 1;
 
     if (title) {
@@ -269,7 +274,7 @@ export const updateIssue = async (
 export const deleteIssue = async (
   req: AuthRequest,
   res: Response,
-): Promise<any> => {
+): Promise<void> => {
   try {
     const issueId = req.params.id;
 
